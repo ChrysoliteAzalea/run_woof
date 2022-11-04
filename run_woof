@@ -1,5 +1,7 @@
 #!/bin/sh
 
+LAYER_TYPE="overlay"
+
 # LAYER_TYPE and DELETE_TMP are defined in run_woof.conf
 [ -f "./run_woof.conf" ] && . "./run_woof.conf"
 
@@ -83,36 +85,36 @@ mkdir $AUFS_MNT
 if [ "$LAYER_TYPE" = 'overlay' ]; then
 	mkdir "${TMP_MNT}/tmp"
 	mkdir "${TMP_MNT}/work"
-	mount -t overlay overlay -olowerdir=$SFS_MNT:$DEVX_MNT,\
-upperdir="${TMP_MNT}/tmp",workdir="${TMP_MNT}/work" $AUFS_MNT
+	fuse-overlayfs -o lowerdir=$SFS_MNT:$DEVX_MNT -o upperdir="${TMP_MNT}/tmp" -o workdir="${TMP_MNT}/work" $AUFS_MNT
 else
 	mount -t aufs -o br=$TMP_MNT=rw:$DEVX_MNT=ro:$SFS_MNT=ro none $AUFS_MNT
 fi
 
+# Things that are handled by systemd-nspawn have been commented out
 # some versions of umount will unmount bind mounts recursively,
 # which means that /dev/pts and /dev/shm get unmounted in the host system
 #mount -R /dev $AUFS_MNT/dev
 
 # different approach borrowed from Linux From Scratch
-mount -B /dev $AUFS_MNT/dev
-mount -t devpts devpts $AUFS_MNT/dev/pts
-if [ -h /dev/shm ]; then
-  rm -f $AUFS_MNT/dev/shm
-  mkdir $AUFS_MNT/dev/shm
-fi
-mount -t tmpfs shm $AUFS_MNT/dev/shm
+# mount -B /dev $AUFS_MNT/dev
+# mount -t devpts devpts $AUFS_MNT/dev/pts
+# if [ -h /dev/shm ]; then
+#  rm -f $AUFS_MNT/dev/shm
+#  mkdir $AUFS_MNT/dev/shm
+# fi
+# mount -t tmpfs shm $AUFS_MNT/dev/shm
 
-mount -B /proc $AUFS_MNT/proc
-mkdir -p $AUFS_MNT/sys
-mount -B /sys $AUFS_MNT/sys
+# mount -B /proc $AUFS_MNT/proc
+# mkdir -p $AUFS_MNT/sys
+# mount -B /sys $AUFS_MNT/sys
 
-mkdir -p "$SHARE_DIR/run_woof-tmp"
-mount -B "$SHARE_DIR/run_woof-tmp" $AUFS_MNT/tmp
+# mkdir -p "$SHARE_DIR/run_woof-tmp"
+# mount -B "$SHARE_DIR/run_woof-tmp" $AUFS_MNT/tmp
 
-mkdir $SHARE_MNT
-mount -R "$SHARE_DIR" $SHARE_MNT
+# mkdir $SHARE_MNT
+# mount -R "$SHARE_DIR" $SHARE_MNT
 
-cp -f /etc/resolv.conf $AUFS_MNT/etc/
+# cp -f /etc/resolv.conf $AUFS_MNT/etc/
 [ -e "$XAUTHORITY" ] && cp -f $XAUTHORITY $AUFS_MNT/root/.Xauthority
 if [ -n "$4" -a -f "$4" ]; then
 	cp "$4" $AUFS_MNT/root/.bashrc
@@ -128,21 +130,9 @@ elif [ -d "$SHARE_MNT/run_woof-master" ]; then
 fi
 
 if [ "${2#*64_}" != "$2" ]; then
-	chroot $AUFS_MNT \
-		gdk-pixbuf-query-loaders --update-cache
-
-	LC_ALL=C \
-	LANG=C \
-	HOME=/root \
-	XAUTHORITY=/root/.Xauthority \
-	chroot $AUFS_MNT /bin/bash -i
+	systemd-nspawn --machine=puppy_prep --as-pid2 --directory $AUFS_MNT /usr/bin/gdk-pixbuf-query-loaders --update-cache
+	systemd-nspawn --machine=puppy -E LC_ALL=C -E LANG=C -E HOME=/root -E XAUTHORITY=/root/.Xauthority --directory $AUFS_MNT /bin/bash -i
 else
-	linux32 chroot $AUFS_MNT \
-		gdk-pixbuf-query-loaders --update-cache
-
-	LC_ALL=C \
-	LANG=C \
-	HOME=/root \
-	XAUTHORITY=/root/.Xauthority \
-	linux32 chroot $AUFS_MNT /bin/bash -i
+	linux32 systemd-nspawn --machine=puppy_prep --as-pid2 --directory $AUFS_MNT /usr/bin/gdk-pixbuf-query-loaders --update-cache
+	linux32 systemd-nspawn --machine=puppy -E LC_ALL=C -E LANG=C -E HOME=/root -E XAUTHORITY=/root/.Xauthority --directory $AUFS_MNT /bin/bash -i
 fi
