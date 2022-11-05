@@ -131,8 +131,8 @@ fi
 
 if [ "${2#*64_}" != "$2" ]; then
 	systemd-nspawn --machine=puppy_prep --as-pid2 --directory $AUFS_MNT /usr/bin/gdk-pixbuf-query-loaders --update-cache
-	systemd-nspawn --machine=puppy -E LC_ALL=C -E LANG=C -E HOME=/root -E XAUTHORITY=/root/.Xauthority --directory $AUFS_MNT /bin/bash -i
+	systemd-nspawn --machine=puppy -"-bind=$SHARE_DIR/run_woof-tmp:/tmp" -E LC_ALL=C -E LANG=C -E HOME=/root -E XAUTHORITY=/root/.Xauthority --directory $AUFS_MNT /bin/bash -i
 else
 	linux32 systemd-nspawn --machine=puppy_prep --as-pid2 --directory $AUFS_MNT /usr/bin/gdk-pixbuf-query-loaders --update-cache
-	linux32 systemd-nspawn --machine=puppy -E LC_ALL=C -E LANG=C -E HOME=/root -E XAUTHORITY=/root/.Xauthority --directory $AUFS_MNT /bin/bash -i
+	linux32 systemd-nspawn --machine=puppy  "--bind=$SHARE_DIR/run_woof-tmp:$AUFS_MNT/tmp" -E LC_ALL=C -E LANG=C -E HOME=/root -E XAUTHORITY=/root/.Xauthority --directory $AUFS_MNT /bin/bash -i
 fi
